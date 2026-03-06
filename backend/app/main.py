@@ -75,8 +75,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://flash-reports-poc.vercel.app",
+        "https://flash-reports-agents-chat.vercel.app",
         "http://localhost:5173",
+        "http://localhost:5174",
         "http://localhost:3000",
+        "http://localhost:4173",
     ],
     allow_credentials=True,
     allow_methods=["*"],
