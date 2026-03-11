@@ -66,6 +66,7 @@ except (ImportError, OSError) as e:
 # Route modules
 from app.routes.template_preparation import router as template_preparation_router
 from app.routes.convert_fast import router as convert_fast_router
+from app.routes.export_pptx import router as export_pptx_router
 
 
 app = FastAPI(
@@ -93,6 +94,7 @@ app.add_middleware(
 # Register route modules
 app.include_router(template_preparation_router)
 app.include_router(convert_fast_router)
+app.include_router(export_pptx_router)
 
 
 # Request/Response models

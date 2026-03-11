@@ -100,7 +100,13 @@ def _pct(v: str) -> float:
 
 # ───────────── stylesheet parser ────────────────────────────
 def _parse_stylesheet(doc) -> Dict[str, dict]:
-    """Parse <style> blocks into {selector: {prop: value}} dict."""
+    """Parse <style> blocks into {selector: {prop: value}} dict.
+
+    Also indexes scoped selectors by their simple suffix so that
+    lookups like _ss_get(ss, '.top-bar') work even when the CSS
+    contains '.slide[data-slide-number="1"] .top-bar { ... }'.
+    Later (more-specific) rules overwrite earlier ones.
+    """
     ss: Dict[str, dict] = {}
     for style_el in doc.cssselect('style'):
         raw = style_el.text_content() or ''
@@ -114,7 +120,22 @@ def _parse_stylesheet(doc) -> Dict[str, dict]:
                 k, v = decl.split(':', 1)
                 props[k.strip().lower()] = v.strip()
             for sel in selectors.split(','):
-                ss[sel.strip()] = props
+                full = sel.strip()
+                ss[full] = props
+                # Index by simple suffix so scoped selectors are findable.
+                # e.g. '.slide[data-slide-number="1"] .top-bar' → '.top-bar'
+                # e.g. '.slide[data-slide-number="2"] .bullet-item::before' → '.bullet-item::before'
+                parts = full.split()
+                if len(parts) > 1:
+                    simple = parts[-1]
+                    # Only add if not already set by a simpler rule (avoid overwrite)
+                    if simple not in ss:
+                        ss[simple] = props
+                    else:
+                        # Merge: scoped rules add to (not replace) existing simple rules
+                        merged = dict(ss[simple])
+                        merged.update(props)
+                        ss[simple] = merged
     return ss
 
 def _ss_get(ss: dict, *selectors) -> dict:
