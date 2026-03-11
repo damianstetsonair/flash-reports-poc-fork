@@ -22,6 +22,10 @@ TEMP_DIR.mkdir(parents=True, exist_ok=True)
 CLAUDE_MODEL = "claude-opus-4-5-20251101"
 CLAUDE_MAX_TOKENS = 32000
 
+# Fast parallel pipeline (uses same model as single-agent)
+CLAUDE_MODEL_FAST = "claude-opus-4-5-20251101"
+CLAUDE_MAX_TOKENS_FAST = 32000
+
 # Server configuration
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))

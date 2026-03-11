@@ -16,13 +16,36 @@ def get_supabase_client() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
+async def ensure_session(session_id: str) -> Dict[str, Any]:
+    """
+    Get an existing session or create a minimal one.
+    Used by fast-conversion to satisfy the generation_jobs FK.
+    """
+    session = await get_session(session_id)
+    if session:
+        return session
+
+    supabase = get_supabase_client()
+    result = supabase.table('sessions').insert({
+        "id": session_id,
+        "current_step": "generating",
+    }).execute()
+
+    if result.data:
+        return result.data[0]
+    raise RuntimeError("Failed to create session")
+
+
 async def get_session(session_id: str) -> Optional[Dict[str, Any]]:
     """
     Get session data from Supabase.
     """
     supabase = get_supabase_client()
-    result = supabase.table('sessions').select('*').eq('id', session_id).single().execute()
-    return result.data if result.data else None
+    try:
+        result = supabase.table('sessions').select('*').eq('id', session_id).maybe_single().execute()
+        return result.data if result.data else None
+    except Exception:
+        return None
 
 
 async def get_mapping(session_id: str) -> Optional[Dict[str, Any]]:
