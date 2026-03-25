@@ -3,6 +3,7 @@ import { corsHeaders, handleCors } from "../_shared/cors.ts"
 
 /**
  * Lists all smartviews of type 'project' from AirSaas API.
+ * For each smartview, also fetches the project count via /item_ids/.
  * Used by the frontend to let users select which smartview to export.
  */
 
@@ -27,6 +28,54 @@ interface AirSaasResponse {
   results: Smartview[]
 }
 
+interface ItemIdsResponse {
+  count: number
+  type: string
+  item_ids: string[]
+}
+
+/** Max concurrent item_ids requests to avoid rate-limiting. */
+const CONCURRENCY_LIMIT = 10
+
+/**
+ * Fetch project count for a single smartview.
+ * Returns 0 on any error (deleted smartview, permissions, etc.).
+ */
+async function fetchProjectCount(
+  baseUrl: string,
+  headers: Record<string, string>,
+  smartviewId: string,
+): Promise<number> {
+  try {
+    const resp = await fetch(
+      `${baseUrl}/smartviews/${smartviewId}/item_ids/`,
+      { headers },
+    )
+    if (!resp.ok) return 0
+    const data: ItemIdsResponse = await resp.json()
+    return data.item_ids?.length ?? 0
+  } catch {
+    return 0
+  }
+}
+
+/**
+ * Run promises in batches to respect rate limits.
+ */
+async function batchedMap<T, R>(
+  items: T[],
+  fn: (item: T) => Promise<R>,
+  batchSize: number,
+): Promise<R[]> {
+  const results: R[] = []
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize)
+    const batchResults = await Promise.all(batch.map(fn))
+    results.push(...batchResults)
+  }
+  return results
+}
+
 serve(async (req) => {
   const corsResponse = handleCors(req)
   if (corsResponse) return corsResponse
@@ -44,7 +93,7 @@ serve(async (req) => {
       'Content-Type': 'application/json',
     }
 
-    // Fetch all project smartviews (with pagination)
+    // 1. Fetch all project smartviews (with pagination)
     const allSmartviews: Smartview[] = []
     let url: string | null = `${baseUrl}/smartviews/?type=project&page_size=50`
 
@@ -66,13 +115,20 @@ serve(async (req) => {
 
     console.log(`Fetched ${allSmartviews.length} project smartviews`)
 
-    // Sort by name for better UX
-    allSmartviews.sort((a, b) => a.name.localeCompare(b.name))
+    // 2. Fetch project counts in parallel (batched to avoid rate limits)
+    const projectCounts = await batchedMap(
+      allSmartviews,
+      (sv) => fetchProjectCount(baseUrl, headers, sv.id),
+      CONCURRENCY_LIMIT,
+    )
+
+    // 3. Pair smartviews with their project counts (frontend handles sorting)
+    const indexed = allSmartviews.map((sv, i) => ({ sv, projects_count: projectCounts[i] }))
 
     return new Response(
       JSON.stringify({
         success: true,
-        smartviews: allSmartviews.map(sv => ({
+        smartviews: indexed.map(({ sv, projects_count }) => ({
           id: sv.id,
           name: sv.name,
           description: sv.description,
@@ -80,8 +136,9 @@ serve(async (req) => {
           view_category: sv.view_category,
           private: sv.private,
           updated_at: sv.updated_at,
+          projects_count,
         })),
-        total: allSmartviews.length,
+        total: indexed.length,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

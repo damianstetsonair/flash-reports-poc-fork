@@ -20,6 +20,9 @@ from typing import List, Tuple, Dict, Any
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 
+from collections import Counter
+from lxml import html as lxml_html
+
 from app.config import ANTHROPIC_API_KEY, CLAUDE_MODEL_FAST, CLAUDE_MAX_TOKENS_FAST
 from app.services.claude_html import HTML_TEMPLATE_PROMPT_BASE, fix_character_encoding
 
@@ -41,11 +44,13 @@ _executor = ThreadPoolExecutor(max_workers=10)
 # We only REPLACE <task> and <output_format> with single-slide versions.
 
 SINGLE_SLIDE_TASK = """<task>
-Analyze this single slide image and generate HTML/CSS that replicates EXACTLY its visual appearance.
+Analyze this single slide image and generate HTML/CSS that replicates its visual appearance.
 This is SLIDE {slide_number} of {total_slides} in a presentation.
 
-Your goal is to create a replica so faithful that when placed side-by-side with the original,
-they are completely indistinguishable.
+PRIORITY ORDER:
+1. EVERYTHING FITS — all content visible, nothing overflows, nothing overlaps
+2. LOOKS CLEAN — professional, readable, well-spaced
+3. FAITHFUL REPLICA — match the original as closely as possible
 
 CRITICAL - EXACT REPLICATION:
 This is NOT a template with placeholders. You must replicate the slide EXACTLY as it appears,
@@ -54,29 +59,52 @@ including ALL the original text, numbers, names, dates, and values shown in the 
 - Copy all text EXACTLY as shown (project names, person names, dates, numbers, percentages)
 - Do NOT replace any text with placeholders like {{{{field_name}}}}
 - Do NOT modify, summarize, or change any content
-- The HTML should look IDENTICAL to the original slide
+- If the original image shows overlapping text or cut-off content, FIX these issues in your HTML.
+  Produce a clean, readable version — not a faithful copy of visual bugs.
 
 <visual_richness>
 CRITICAL - PROFESSIONAL VISUAL QUALITY:
 Each slide must look like it was designed by a professional presentation designer.
 You MUST produce visually DENSE, RICH output. Do NOT simplify or produce minimal CSS.
 
+COLOR PALETTE — Extract 4-5 key colors from the image (primary, secondary, accent, bg-tint, text):
+- Use the SAME hex values consistently — all blue elements use the exact same #hex
+- Never invent new colors; every color must come from the original image
+
 REQUIRED visual elements (use ALL that appear in the image):
-- Colored top-bar and footer-bar with solid brand colors or gradients
-- Section headers with colored border-top separator lines (3-4px solid)
-- Section boxes with borders, padding, and subtle background colors
+- Top-bar and footer-bar: replicate EXACTLY — flat solid color if flat, gradient ONLY if the image shows one.
+  Do NOT add gradients to flat bars. Most presentations use flat solid colors.
+- Section headers with colored border-top (3-4px solid [primary-color])
+- Section boxes: replicate the original look exactly.
+  Only add box-shadow, tinted backgrounds, or border-radius if the original image shows them.
+  If the image shows sharp/square corners, do NOT add border-radius. Do NOT invent visual effects.
 - Bullet items with colored square bullets via CSS ::before pseudo-elements
-- Progress bars with nested divs (outer background + inner colored fill with width in %)
-- Status indicators using small colored spans with border-radius: 50%
+- Progress bars with nested divs (outer background + inner colored fill)
+- STATUS BADGES as pills: <span style="display:inline-block; padding:2px 10px; border-radius:12px;
+  background:#dcfce7; color:#166534; font-size:10px; font-weight:600;">On Track</span>
+  (green=good, yellow=warning, red=critical, blue=info, gray=neutral)
+- KPI donut charts with conic-gradient when the image shows circular indicators
+- Traffic light indicators (3 dots, active one at full opacity, others at 0.3)
 - Trend arrows and KPI indicators with colored backgrounds
 - Bold sub-labels within content sections
 - Table cells with alternating row colors and header backgrounds
-- Visual separators, dividers, and spacing that create a polished layout
-- Box shadows on cards and containers for depth
-- Precise color matching (#hex values extracted from the image, not generic colors)
 
-DO NOT produce flat, unstyled HTML. Every element must have deliberate styling
-including colors, borders, padding, margins, font-weights, and backgrounds.
+SPACING RHYTHM — All spacing must follow a 4px grid:
+- gap: 8px between sections, 4px between bullets, 12px padding inside boxes
+- ONLY use: 4, 8, 12, 16, 20, 24px — never arbitrary values like 7px, 13px
+
+TYPOGRAPHY:
+- Titles: font-weight:700; letter-spacing:-0.5px;
+- Section headers: text-transform:uppercase; letter-spacing:1px; font-weight:600;
+- Body: font-weight:400; line-height:1.4;
+- Captions/dates: color:rgba(0,0,0,0.55);
+
+BORDERS — Replicate from image, consistent system (never mix styles):
+- Section separator: border-top with primary color (replicate thickness from image)
+- Box border: replicate from image (color, thickness). Do NOT add border-radius unless image shows rounded corners
+- Table rows: replicate from image (typically hairline separators)
+
+DO NOT produce flat, unstyled HTML. Every element must have deliberate styling.
 The CSS for this single slide should be comprehensive (typically 40-80 CSS rules).
 </visual_richness>
 </task>"""
@@ -90,6 +118,11 @@ You must output TWO things for this slide:
    .bullet-item, .sub-label, .trend-box, .trend-item, .footer-bar, .page-number,
    .logo, .link-text
    You may also use inline styles for positioning and slide-specific values (top, left, width, height, colors).
+
+   TEXT FIDELITY WARNING: The .logo and .page-number inside .footer-bar, and .main-title,
+   MUST contain the COMPLETE text from the image. Read these texts character by character.
+   A common bug is outputting only the LAST letter of a brand name (e.g., "A" instead of "SYSTRA").
+   Carefully read the FULL word in the image before writing it.
 
 2. **slide_css**: ALL CSS rules needed for this slide. EVERY rule MUST be scoped with the prefix:
    .slide[data-slide-number="{slide_number}"]
@@ -107,7 +140,7 @@ You must output TWO things for this slide:
    .slide[data-slide-number="{slide_number}"] .top-bar {{ background: #003366; position: absolute; top: 0; left: 0; width: 960px; height: 8px; }}
    .slide[data-slide-number="{slide_number}"] .main-title {{ position: absolute; top: 15px; left: 20px; font-size: 22px; font-weight: bold; color: #003366; }}
    .slide[data-slide-number="{slide_number}"] .bullet-item::before {{ content: ""; display: inline-block; width: 6px; height: 6px; background: #003366; margin-right: 8px; vertical-align: middle; }}
-   .slide[data-slide-number="{slide_number}"] .section-box {{ border: 1px solid #e0e0e0; border-radius: 4px; padding: 12px; background: #fafafa; }}
+   .slide[data-slide-number="{slide_number}"] .section-box {{ border: 1px solid #e0e0e0; padding: 12px; }}
    .slide[data-slide-number="{slide_number}"] .footer-bar {{ position: absolute; bottom: 0; left: 0; width: 960px; height: 30px; background: #003366; }}
 
    Do NOT output unscoped rules. Every selector MUST start with .slide[data-slide-number="{slide_number}"].
@@ -120,74 +153,86 @@ SINGLE_SLIDE_FINAL = """
 Generate the HTML and CSS for SLIDE {slide_number} of {total_slides}.
 
 <overflow_prevention>
-CRITICAL - ASPECT RATIO AND OVERFLOW RULES:
-The slide container is EXACTLY 960px wide x 540px tall (16:9 aspect ratio).
-ALL content MUST fit within these boundaries. Nothing may overflow or be clipped.
+CRITICAL - THE SLIDE IS 960px WIDE x 540px TALL. EVERYTHING MUST FIT.
 
-Layout boundaries:
-- Usable content area: 20px padding on all sides = 920px wide x 480px tall
-- Top bar: position absolute, top: 0, left: 0, width: 960px, height: 6-8px
-- Footer bar: position absolute, bottom: 0, left: 0, width: 960px, height: 28-32px
-- Content zone: from y=40px to y=508px (above footer)
-- Two-column layout: left column ~460px, right column ~460px, with 20px gap
+LAYOUT STRUCTURE — use this approach:
+1. CHROME: .top-bar (absolute, top:0, height: 6-8px) and .footer-bar (absolute, bottom:0, height: 28-32px)
+2. HEADER ZONE: A flex row container (absolute positioned below top-bar):
+   - position: absolute; top: 10px; left: 20px; right: 20px;
+   - display: flex; align-items: center; justify-content: space-between;
+   - .main-title grows to fill space (flex: 1; min-width: 0;)
+   - .date-box stays fixed size (flex-shrink: 0;)
+   - This AUTOMATICALLY prevents title/date-box overlap — no pixel math needed
+3. CONTENT ZONE: A flex column container (absolute positioned between header and footer):
+   - position: absolute; top: ~50px; left: 20px; right: 20px; bottom: 32px;
+   - display: flex; flex-direction: column; gap: 8px;
+   - Sections flow vertically and SHARE SPACE — flex-shrink lets them compress if tight
+   - NO hardcoded top/left per section — flex handles the distribution
+4. INSIDE SECTIONS (.section-box):
+   - display: flex; flex-direction: column; gap: 4px;
+   - Content flows naturally — bullets, text, sub-sections never overlap
+   - flex-shrink: 1; min-height: 0; — allows the section to compress
+5. TREND/KPI ROWS (.trend-box):
+   - display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+6. TWO-COLUMN LAYOUTS:
+   - display: flex; gap: 16px; — each column: flex: 1; min-width: 0; word-wrap: break-word;
 
-Title and header layout (CRITICAL - prevent overlaps):
-- .main-title MUST span the full available width: left: 20px, width: 700-760px
-  If there is a .date-box on the right, set title width so it STOPS 20px before the date-box left edge
-  Example: date-box at left:780px -> title width: 740px (780 - 20 - 20)
-- .date-box (if present): position absolute, top: 10-18px, RIGHT-aligned (left: 760-820px)
-- .section-header spans full width of its parent container (no fixed narrow widths)
-- .section-title inside .section-header: width: 100%, no fixed px width that could truncate text
-- NO element may overlap another element at the same z-level. Check all top/left/width/height
-  combinations to ensure bounding boxes do not intersect
-- Long titles: use word-wrap: break-word and reduce font-size (18-20px) rather than letting text overflow
-
-Font size guidelines (to prevent overflow):
+Font size guidelines:
 - Slide title: 20-26px, font-weight: bold
-- Section header title: 13-16px, font-weight: 600, text-transform: uppercase
-- Body text / bullet items: 11-13px, line-height: 1.3-1.5
+- Section header: 13-16px, font-weight: 600, text-transform: uppercase
+- Body text / bullets: 11-13px, line-height: 1.3-1.5
 - Table cells: 10-12px
-- Footer text / captions: 9-11px
-- Page numbers: 10-12px
+- Footer / captions: 9-11px
 
-Element sizing rules:
-- EVERY absolutely-positioned element MUST have explicit width in px
-- EVERY absolutely-positioned element MUST have explicit height in px OR use bottom constraint
-- Tables MUST have width in px on both the table element and each td/th
-- Text containers must account for padding: usable_width = container_width - padding_left - padding_right
-- Progress bars: outer div has explicit width in px, inner div uses percentage width
+Fitting rules:
+- Use gap (not margins) for spacing between flex children
+- Use flex-shrink: 1 + min-height: 0 on sections so they compress when space is tight
+- If content is dense, prefer smaller font sizes BEFORE any clipping occurs
+- The content zone flex container handles vertical distribution — trust it
 
-Overflow safety:
-- Set overflow: hidden on ALL section-box and content container elements
-- Use word-wrap: break-word on ALL text elements
-- If content is dense, prefer smaller font sizes (11px body, 10px table) over clipping
+RESILIENT TEXT CONTAINERS — This template will be populated with variable-length data later:
+- EVERY text element MUST have: word-wrap: break-word; overflow-wrap: break-word;
+- DO NOT use overflow: hidden or text-overflow: ellipsis on text elements — text must NEVER be clipped or truncated
+- EVERY flex column child MUST have: min-height: 0; flex-shrink: 1;
+- EVERY flex row child MUST have: min-width: 0; word-wrap: break-word;
+- Do NOT use fixed heights on text containers — let flex handle sizing
+- Text that says "Project Alpha" now may become "Enterprise Cloud Migration Phase 2" later
+- All containers must handle 2-3x longer text without breaking layout
+- The ONLY element that should have overflow: hidden is the .slide container itself (960x540)
 </overflow_prevention>
 
 <self_check>
-MANDATORY - BEFORE RETURNING YOUR RESPONSE, mentally review every absolutely-positioned element
-you created and verify there are NO collisions:
-1. List each element's bounding box: (top, left, width, height) → compute bottom = top+height, right = left+width
-2. For every pair of elements at the same depth, confirm their bounding boxes do NOT intersect:
-   - Two boxes collide if: A.left < B.right AND A.right > B.left AND A.top < B.bottom AND A.bottom > B.top
-3. If any pair collides, ADJUST positions/sizes before outputting. Common fixes:
-   - Move the lower element's top below the upper element's bottom + 4px gap
-   - Narrow an element's width so it stops before the neighbor's left edge
-   - Reduce font-size to shrink an element's height
-4. Pay special attention to: title vs date-box, section-box vs section-box, footer vs last content element
-5. Verify the LAST element's bottom edge is ABOVE the footer-bar's top edge (at least 4px gap)
+BEFORE RETURNING, verify:
+1. Chrome (.top-bar, .footer-bar) is position: absolute at top/bottom edges
+2. Header zone uses display: flex row — title and date-box cannot collide
+3. Content zone uses display: flex column — sections cannot collide
+4. Content zone bottom is ABOVE .footer-bar top (bottom: 32px or more)
+5. Each .section-box uses flex column internally — bullets/text cannot overlap
+6. No text is cut off — reduce font-size if needed, flex-shrink handles the rest
+7. Two-column layouts (if any) use flex row with flex: 1 per column
+8. TEXT FIDELITY — Re-read the image and verify these texts CHARACTER BY CHARACTER:
+   - .logo text in footer-bar: read EVERY letter left to right from the image. Is it COMPLETE?
+     (e.g., if image shows "SYSTRA", your HTML must say "SYSTRA" — not "A", not "TRA")
+   - .main-title: is the FULL title there, word by word?
+   - .page-number: correct number?
+   - .date-box: full date string?
+   - Brand names and company names are the #1 source of truncation bugs — double check them.
 </self_check>
 
 REMEMBER:
-1. Replicate ALL text EXACTLY as shown - do NOT use placeholders
+1. Replicate ALL text EXACTLY as shown — do NOT use placeholders
 2. Use clean ASCII/HTML entities for bullets and special characters
-3. Ensure pixel-perfect accuracy in positioning and styling
+3. EVERYTHING MUST FIT — flex layout prevents overlaps; reduce font-size if content is dense
 4. Use the required CSS class names (.top-bar, .main-title, .section-header, .section-box, .footer-bar, etc.)
 5. Scope ALL CSS rules with .slide[data-slide-number="{slide_number}"]
-6. The output must be professional, high-quality HTML+CSS with RICH visual styling
-7. Include pseudo-elements (::before, ::after) for bullets and decorations
-8. ALL elements must fit within the 960x540px container - verify no overflow
-9. Use pixel values (px) for ALL positioning, widths, heights, and font sizes
-10. CSS should be comprehensive: expect 40-80 rules per slide, not 10-15
+6. Extract a consistent color palette from the image — reuse the SAME hex values everywhere
+7. All spacing follows 4px rhythm: 4, 8, 12, 16, 20, 24px only
+8. Status indicators = pill badges (rounded, tinted background, bold text)
+9. Shadows and gradients ONLY if visible in the original image — do NOT add them to flat designs
+10. Chrome bars (top-bar, footer-bar): flat solid color if flat in image, gradient ONLY if image shows one
+11. Typography: titles tight (-0.5px spacing), headers uppercase (+1px spacing), captions muted opacity
+12. CSS should be comprehensive: expect 40-80 rules per slide, not 10-15
+13. If the original shows visual bugs (overlaps, cut-off text), FIX them — produce clean output
 """
 
 
@@ -362,9 +407,34 @@ body {
     position: relative;
     overflow: hidden;
     margin: 20px auto;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-    border-radius: 8px;
     background: #ffffff;
+}
+
+/* --- Container query auto-scaling for text --- */
+.section-box,
+.trend-box,
+.section-header {
+    container-type: inline-size;
+}
+.section-box .bullet-item,
+.section-box .sub-label,
+.section-box p,
+.section-box li,
+.section-box span:not(.page-number):not(.logo) {
+    font-size: clamp(8px, 2.8cqw, 13px);
+    line-height: clamp(1.1, 0.1cqw + 1, 1.5);
+}
+.section-header .section-title {
+    font-size: clamp(9px, 3.2cqw, 16px);
+}
+.trend-box .trend-item {
+    font-size: clamp(8px, 2.5cqw, 12px);
+}
+td, th {
+    font-size: clamp(8px, 2.5cqw, 12px);
+}
+.main-title {
+    font-size: clamp(14px, 3.5cqw, 26px);
 }"""
 
 
@@ -460,6 +530,78 @@ def _generate_single_slide_html(
 
 
 # ---------------------------------------------------------------------------
+# Chrome normalization (fix inconsistent footer/header text across slides)
+# ---------------------------------------------------------------------------
+
+def _normalize_chrome_text(slide_htmls: List[str]) -> List[str]:
+    """
+    Fix inconsistent .logo and .page-number text across slides.
+
+    Because each slide is generated by an independent Claude call, the agent
+    may read footer/header text differently per slide (e.g., "SYSTRA" on slide 1
+    but only "A" on slide 3). This function:
+
+    1. Extracts .logo text from every slide
+    2. Picks the LONGEST value as the canonical one (longest = most complete reading)
+    3. Replaces truncated versions in all slides
+
+    Same logic for .main-title consistency check (logs warnings only).
+    """
+    if len(slide_htmls) < 2:
+        return slide_htmls
+
+    # Extract logo text from each slide
+    logo_texts = []
+    for i, html_str in enumerate(slide_htmls):
+        try:
+            doc = lxml_html.fromstring(f"<div>{html_str}</div>")
+            logos = doc.cssselect(".logo")
+            text = logos[0].text_content().strip() if logos else ""
+            logo_texts.append(text)
+        except Exception:
+            logo_texts.append("")
+
+    # Filter to non-empty values
+    non_empty = [t for t in logo_texts if t]
+    if not non_empty:
+        return slide_htmls
+
+    # Pick canonical logo: longest text (most complete OCR reading)
+    canonical_logo = max(non_empty, key=len)
+
+    # Count how many slides need fixing
+    fixes_needed = sum(
+        1 for t in logo_texts
+        if t and t != canonical_logo and len(t) < len(canonical_logo)
+    )
+
+    if fixes_needed > 0:
+        print(f"[parallel-html] --- Chrome Normalization ---")
+        print(f"[parallel-html] Canonical .logo text: \"{canonical_logo}\"")
+        print(f"[parallel-html] Fixing {fixes_needed} slides with truncated logo text")
+
+        fixed_htmls = []
+        for i, (html_str, logo_text) in enumerate(zip(slide_htmls, logo_texts)):
+            if logo_text and logo_text != canonical_logo and len(logo_text) < len(canonical_logo):
+                # Replace the truncated text in the .logo span
+                # Use regex to target <span class="logo">...</span> precisely
+                fixed = re.sub(
+                    r'(<span\s+class="logo"[^>]*>)[^<]*(</span>)',
+                    rf'\g<1>{canonical_logo}\2',
+                    html_str,
+                )
+                if fixed != html_str:
+                    print(f"[parallel-html] Slide {i+1}: \"{logo_text}\" → \"{canonical_logo}\"")
+                fixed_htmls.append(fixed)
+            else:
+                fixed_htmls.append(html_str)
+
+        return fixed_htmls
+
+    return slide_htmls
+
+
+# ---------------------------------------------------------------------------
 # Main parallel orchestrator
 # ---------------------------------------------------------------------------
 
@@ -536,6 +678,9 @@ async def generate_html_parallel(
         f"[parallel-html] === All {total_slides} slides completed "
         f"({ok_count} OK, {fail_count} failed) in {parallel_elapsed:.1f}s ==="
     )
+
+    # --- Chrome Normalization (fix inconsistent footer/header text across slides) ---
+    slide_htmls = _normalize_chrome_text(slide_htmls)
 
     # --- CSS Unification ---
     css_start = time.time()

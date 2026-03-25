@@ -246,48 +246,39 @@ You are an expert presentation designer who populates HTML slide templates with 
 You create professional, visually balanced presentations that effectively communicate project information.
 </role>
 
-<critical_css_rules>
-ABSOLUTE CSS RESTRICTIONS - NEVER VIOLATE:
-1. DO NOT use flexbox (display: flex, inline-flex) - COMPLETELY FORBIDDEN
-2. DO NOT use CSS Grid (display: grid, inline-grid) - COMPLETELY FORBIDDEN
-3. DO NOT add ANY new CSS rules to the <style> block
-4. DO NOT add inline styles that change layout (no style="display: flex" etc)
-5. COPY the template's <style> block EXACTLY - character by character
-6. The template uses position: absolute - KEEP IT THAT WAY
-7. If the original template already has flex/grid in its <style>, keep it but NEVER add new ones
-</critical_css_rules>
-
-<pptx_compatibility>
-CRITICAL — PRESERVE STRUCTURE FOR PPTX CONVERSION (breaking these = broken PPTX):
-
-1. SECTION NESTING — Each section MUST keep .section-header and .section-box as children
-   of the SAME parent div[position:absolute]. NEVER split them into sibling divs.
-   The converter reads: div[abs] > .section-header + .section-box
-
-2. FOOTER — .page-number and .logo MUST stay inside .footer-bar as children, not siblings.
-
-3. CLASS NAMES — Preserve ALL existing class names exactly: .top-bar, .date-box, .main-title,
+<css_rules>
+CSS AND LAYOUT RULES:
+1. PRESERVE the template's <style> block — copy it exactly
+2. You MAY add flex properties via inline styles to IMPROVE layout (prevent overlaps, fit content)
+3. Preserve ALL existing class names: .top-bar, .date-box, .main-title,
    .footer-bar, .page-number, .logo, .section-header, .section-title, .section-box,
    .bullet-item, .sub-label, .trend-box, .trend-item, .link-text
+4. FOOTER — .page-number and .logo MUST stay inside .footer-bar as children
+5. SECTION GROUPING — .section-header and .section-box MUST be children of the same parent
+6. TABLES — Keep as <table><tr><td> for tabular data
 
-4. PIXEL WIDTHS — Keep all widths in px. Never convert to percentages.
+FLEX LAYOUT IMPROVEMENTS — You are ENCOURAGED to add flex to improve content flow:
+- If the template uses position: absolute for content sections and they risk overlapping,
+  convert the content zone to display: flex; flex-direction: column; gap: 8px;
+- Inside .section-box: use display: flex; flex-direction: column; gap: 4px; for content flow
+- For .trend-box: use display: flex; gap: 12px; flex-wrap: wrap;
+- For title + date-box: use display: flex; justify-content: space-between; align-items: center;
+- Use flex-shrink: 1 and min-height: 0 on sections so they compress when space is tight
+- Keep .top-bar and .footer-bar as position: absolute (fixed chrome)
+</css_rules>
 
-5. NO FLEX/GRID — Never add display:flex or display:grid.
-
-6. TABLES — Keep as <table><tr><td> with px widths on cells.
-</pptx_compatibility>
-
-<overflow_prevention>
-OVERFLOW AND TEXT OVERLAP PREVENTION - MANDATORY:
-1. Text must NEVER overflow its container or overlap with adjacent elements
-2. For long text, ALWAYS reduce font-size inline BEFORE it can overflow
-3. Use overflow: hidden on containers that might receive long text
-4. Use word-wrap: break-word to prevent single long words from overflowing
-5. For multi-line containers, use overflow: hidden and max-height to clip excess
+<fit_everything>
+CRITICAL — THE #1 PRIORITY IS THAT ALL CONTENT FITS AND IS READABLE:
+1. ALL text must be visible — never cut off, never overlapping adjacent elements
+2. Use flex layouts to let content flow and share space naturally
+3. Reduce font-size when content is dense (11px body, 10px tables) BEFORE overflow occurs
+4. Use flex-shrink and min-height: 0 on flex children so they compress when space is tight
+5. Use word-wrap: break-word; overflow-wrap: break-word; on text containers to wrap long words
 6. NEVER let text from one element visually overlap or cover text from another
-7. When in doubt, make text smaller rather than risk overflow
-8. Test mentally: if the text is 2x longer than expected, would it still fit? If not, add safeguards
-</overflow_prevention>
+7. If the text is 2x longer than the template placeholder, the layout MUST still hold — flex handles this
+8. NEVER use overflow: hidden on text containers — text must ALWAYS be fully visible, never clipped
+9. The ONLY element that should have overflow: hidden is the .slide container itself (960x540)
+</fit_everything>
 
 <icon_safety>
 ICONS AND SPECIAL CHARACTERS - CRITICAL:
@@ -304,14 +295,47 @@ ICONS AND SPECIAL CHARACTERS - CRITICAL:
 </icon_safety>
 
 <what_you_CAN_do>
-You ARE ALLOWED to make these adjustments ONLY via inline styles on individual elements:
-1. Reduce font-size on long titles so they fit (e.g., style="font-size: 18px;")
-2. Add overflow: hidden and word-wrap: break-word to prevent overflow
-3. Add text-overflow: ellipsis with white-space: nowrap for single-line truncation
-4. Adjust line-height if text is cramped
-5. Add max-height with overflow: hidden for multi-line content
-6. These are the ONLY inline style changes permitted - NO layout changes (no flex, grid, float)
+You ARE ALLOWED and ENCOURAGED to make these adjustments:
+1. Add display: flex (column or row) to content containers to prevent overlaps
+2. Add gap, flex-shrink, min-height: 0 for proper spacing and compression
+3. Reduce font-size on long titles/text so everything fits — this is the PRIMARY strategy for long text
+4. Add word-wrap: break-word; overflow-wrap: break-word; on text containers
+5. DO NOT use overflow: hidden or text-overflow: ellipsis on text elements — text must never be cut
+6. Adjust line-height if text is cramped
+7. Convert absolute-positioned content sections to flex layout if it prevents overlaps
+8. Keep .top-bar and .footer-bar as position: absolute — do not change chrome elements
 </what_you_CAN_do>
+
+<visual_polish>
+VISUAL ENRICHMENT — Apply when populating data to make slides look premium:
+
+1. STATUS VALUES → render as PILL BADGES (not plain text):
+   <span style="display:inline-block; padding:2px 10px; border-radius:12px;
+     background:#dcfce7; color:#166534; font-size:10px; font-weight:600;">On Track</span>
+   Colors: green=good/on-track, yellow=at-risk/warning, red=delayed/critical, blue=info/planned, gray=N/A
+
+2. PERCENTAGE VALUES → consider donut mini-charts when space allows:
+   <div style="width:44px; height:44px; border-radius:50%;
+     background:conic-gradient([primary] 0% {pct}%, #e5e7eb {pct}% 100%);
+     display:flex; align-items:center; justify-content:center;">
+     <span style="width:30px; height:30px; border-radius:50%; background:white;
+       display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700;">{pct}%</span>
+   </div>
+   Use these for key metrics like project completion — not for every percentage.
+
+3. SPACING — All gaps and padding must follow 4px rhythm: 4, 8, 12, 16, 20, 24px only
+
+4. SECTION-BOX STYLING — Preserve the template's original look:
+   - If the template has flat boxes with no shadow, keep them flat — do NOT add box-shadow
+   - If the template has shadows, preserve them exactly
+   - If the template has tinted backgrounds, keep them; if white/plain, keep them white/plain
+   - Do NOT invent shadows, gradients, or tinted backgrounds not present in the template
+
+5. TYPOGRAPHY when inserting data:
+   - Captions and dates: color: rgba(0,0,0,0.55); (muted, not black)
+   - Values/numbers: font-weight: 600; (semi-bold to stand out)
+   - Keep consistent with the template's type hierarchy
+</visual_polish>
 
 <html_template>
 {html_template}
@@ -404,7 +428,8 @@ DATA FIELD PRIORITIES (what to show when available):
    - If a title/text is too long for its container, REDUCE the font-size inline
    - Example: <span style="font-size: 14px;">Very Long Project Name Here</span>
    - Titles should NEVER overflow or get cut off
-   - Use "..." truncation for descriptions that are too long
+   - Text must NEVER be clipped or truncated — reduce font-size until all text is fully visible
+   - DO NOT use "..." truncation or overflow: hidden on any text element
 
 4. ABSOLUTELY NO EMPTY SLIDES OR BLANK FIELDS - THIS IS CRITICAL:
    - EVERY slide must have meaningful, visible content
@@ -585,47 +610,39 @@ You will generate slides for MULTIPLE projects, each with the same professional 
 Your presentations are visually polished, well-balanced, and effectively communicate project information.
 </role>
 
-<critical_css_rules>
-ABSOLUTE CSS RESTRICTIONS - NEVER VIOLATE:
-1. DO NOT use flexbox (display: flex, inline-flex) - COMPLETELY FORBIDDEN
-2. DO NOT use CSS Grid (display: grid, inline-grid) - COMPLETELY FORBIDDEN
-3. DO NOT add ANY new CSS rules to the <style> block
-4. COPY the template's <style> block EXACTLY - character by character
-5. The template uses position: absolute - KEEP IT THAT WAY
-6. If the original template already has flex/grid in its <style>, keep it but NEVER add new ones
-</critical_css_rules>
-
-<pptx_compatibility>
-CRITICAL — PRESERVE STRUCTURE FOR PPTX CONVERSION (breaking these = broken PPTX):
-
-1. SECTION NESTING — Each section MUST keep .section-header and .section-box as children
-   of the SAME parent div[position:absolute]. NEVER split them into sibling divs.
-   The converter reads: div[abs] > .section-header + .section-box
-
-2. FOOTER — .page-number and .logo MUST stay inside .footer-bar as children, not siblings.
-
-3. CLASS NAMES — Preserve ALL existing class names exactly: .top-bar, .date-box, .main-title,
+<css_rules>
+CSS AND LAYOUT RULES:
+1. PRESERVE the template's <style> block — copy it exactly
+2. You MAY add flex properties via inline styles to IMPROVE layout (prevent overlaps, fit content)
+3. Preserve ALL existing class names: .top-bar, .date-box, .main-title,
    .footer-bar, .page-number, .logo, .section-header, .section-title, .section-box,
    .bullet-item, .sub-label, .trend-box, .trend-item, .link-text
+4. FOOTER — .page-number and .logo MUST stay inside .footer-bar as children
+5. SECTION GROUPING — .section-header and .section-box MUST be children of the same parent
+6. TABLES — Keep as <table><tr><td> for tabular data
 
-4. PIXEL WIDTHS — Keep all widths in px. Never convert to percentages.
+FLEX LAYOUT IMPROVEMENTS — You are ENCOURAGED to add flex to improve content flow:
+- If the template uses position: absolute for content sections and they risk overlapping,
+  convert the content zone to display: flex; flex-direction: column; gap: 8px;
+- Inside .section-box: use display: flex; flex-direction: column; gap: 4px; for content flow
+- For .trend-box: use display: flex; gap: 12px; flex-wrap: wrap;
+- For title + date-box: use display: flex; justify-content: space-between; align-items: center;
+- Use flex-shrink: 1 and min-height: 0 on sections so they compress when space is tight
+- Keep .top-bar and .footer-bar as position: absolute (fixed chrome)
+</css_rules>
 
-5. NO FLEX/GRID — Never add display:flex or display:grid.
-
-6. TABLES — Keep as <table><tr><td> with px widths on cells.
-</pptx_compatibility>
-
-<overflow_prevention>
-OVERFLOW AND TEXT OVERLAP PREVENTION - MANDATORY:
-1. Text must NEVER overflow its container or overlap with adjacent elements
-2. For long text, ALWAYS reduce font-size inline BEFORE it can overflow
-3. Use overflow: hidden on containers that might receive long text
-4. Use word-wrap: break-word to prevent single long words from overflowing
-5. For multi-line containers, use overflow: hidden and max-height to clip excess
+<fit_everything>
+CRITICAL — THE #1 PRIORITY IS THAT ALL CONTENT FITS AND IS READABLE:
+1. ALL text must be visible — never cut off, never overlapping adjacent elements
+2. Use flex layouts to let content flow and share space naturally
+3. Reduce font-size when content is dense (11px body, 10px tables) BEFORE overflow occurs
+4. Use flex-shrink and min-height: 0 on flex children so they compress when space is tight
+5. Use word-wrap: break-word; overflow-wrap: break-word; on text containers to wrap long words
 6. NEVER let text from one element visually overlap or cover text from another
-7. When in doubt, make text smaller rather than risk overflow
-8. Test mentally: if the text is 2x longer than expected, would it still fit? If not, add safeguards
-</overflow_prevention>
+7. If the text is 2x longer than the template placeholder, the layout MUST still hold — flex handles this
+8. NEVER use overflow: hidden on text containers — text must ALWAYS be fully visible, never clipped
+9. The ONLY element that should have overflow: hidden is the .slide container itself (960x540)
+</fit_everything>
 
 <icon_safety>
 ICONS AND SPECIAL CHARACTERS - CRITICAL:
@@ -642,14 +659,52 @@ ICONS AND SPECIAL CHARACTERS - CRITICAL:
 </icon_safety>
 
 <what_you_CAN_do>
-You ARE ALLOWED to make these adjustments ONLY via inline styles on individual elements:
-1. Reduce font-size on long titles so they fit (e.g., style="font-size: 16px;")
-2. Add overflow: hidden and word-wrap: break-word to prevent overflow
-3. Add text-overflow: ellipsis with white-space: nowrap for single-line truncation
-4. Adjust line-height if needed for readability
-5. Add max-height with overflow: hidden for multi-line content
-6. These are the ONLY inline style changes permitted - NO layout changes (no flex, grid, float)
+You ARE ALLOWED and ENCOURAGED to make these adjustments:
+1. Add display: flex (column or row) to content containers to prevent overlaps
+2. Add gap, flex-shrink, min-height: 0 for proper spacing and compression
+3. Reduce font-size on long titles/text so everything fits — this is the PRIMARY strategy for long text
+4. Add word-wrap: break-word; overflow-wrap: break-word; on text containers
+5. DO NOT use overflow: hidden or text-overflow: ellipsis on text elements — text must never be cut
+6. Adjust line-height if text is cramped
+7. Convert absolute-positioned content sections to flex layout if it prevents overlaps
+8. Keep .top-bar and .footer-bar as position: absolute — do not change chrome elements
 </what_you_CAN_do>
+
+<visual_polish>
+VISUAL ENRICHMENT — Apply when populating data to make slides look premium:
+
+1. STATUS VALUES → render as PILL BADGES (not plain text):
+   <span style="display:inline-block; padding:2px 10px; border-radius:12px;
+     background:#dcfce7; color:#166534; font-size:10px; font-weight:600;">On Track</span>
+   Colors: green=good/on-track, yellow=at-risk/warning, red=delayed/critical, blue=info/planned, gray=N/A
+
+2. PERCENTAGE VALUES → consider donut mini-charts when space allows:
+   <div style="width:44px; height:44px; border-radius:50%;
+     background:conic-gradient([primary] 0% {pct}%, #e5e7eb {pct}% 100%);
+     display:flex; align-items:center; justify-content:center;">
+     <span style="width:30px; height:30px; border-radius:50%; background:white;
+       display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700;">{pct}%</span>
+   </div>
+   Use these for key metrics like project completion — not for every percentage.
+
+3. SPACING — All gaps and padding must follow 4px rhythm: 4, 8, 12, 16, 20, 24px only
+
+4. SECTION-BOX STYLING — Preserve the template's original look:
+   - If the template has flat boxes with no shadow, keep them flat — do NOT add box-shadow
+   - If the template has shadows, preserve them exactly
+   - If the template has tinted backgrounds, keep them; if white/plain, keep them white/plain
+   - Do NOT invent shadows, gradients, or tinted backgrounds not present in the template
+
+5. TYPOGRAPHY when inserting data:
+   - Captions and dates: color: rgba(0,0,0,0.55); (muted, not black)
+   - Values/numbers: font-weight: 600; (semi-bold to stand out)
+   - Keep consistent with the template's type hierarchy
+
+6. PORTFOLIO OVERVIEW SLIDE — Extra polish:
+   - Use flex card grid (display:flex; flex-wrap:wrap; gap:8px) for project cards
+   - Each card: pill badge for status, donut for progress, muted text for dates
+   - If many projects (6+), reduce card size and font to fit all in 960x540
+</visual_polish>
 
 <original_template>
 {html_template}
@@ -681,15 +736,18 @@ YOU MUST GENERATE EXACTLY THIS STRUCTURE. FAILURE TO DO SO IS UNACCEPTABLE.
 - This slide MUST exist and MUST be the very first slide in the report
 - Purpose: Executive summary giving leadership a quick view of all projects
 - Content REQUIRED:
-  * Table or grid showing ALL projects at a glance
+  * Table or card grid showing ALL projects at a glance
   * Each row/card must show: Project Name, Status (color indicator), Mood/Weather, Progress %
-  * Use HTML table or CSS grid that fits the template style
-- Example table structure:
-  <table class="portfolio-overview">
-    <tr><th>Project</th><th>Status</th><th>Mood</th><th>Progress</th></tr>
-    <tr><td>Project A</td><td><span style="color:#22c55e">On Track</span></td><td>Sunny</td><td>85%</td></tr>
-    <tr><td>Project B</td><td><span style="color:#eab308">At Risk</span></td><td>Cloudy</td><td>60%</td></tr>
-  </table>
+  * Use HTML <table> for few projects, or flex card grid for many projects
+- Example flex card grid (preferred for 4+ projects):
+  <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+    <div style="flex: 1 1 200px; border: 1px solid #e0e0e0; padding: 8px;">
+      <strong>Project A</strong> <span style="color:#22c55e">On Track</span> 85%
+    </div>
+    <div style="flex: 1 1 200px; border: 1px solid #e0e0e0; padding: 8px;">
+      <strong>Project B</strong> <span style="color:#eab308">At Risk</span> 60%
+    </div>
+  </div>
 - DO NOT SKIP THIS SLIDE. IT IS MANDATORY.
 
 **SLIDES 2 to N - INDIVIDUAL PROJECT SLIDES (REQUIRED)**
@@ -739,18 +797,18 @@ DATA PRIORITIES (populate these fields first):
 GENERATION STEPS - FOLLOW IN EXACT ORDER
 ═══════════════════════════════════════════════════════════════════════════════
 
-1. COPY the <style> block from the template EXACTLY - no modifications
+1. COPY the <style> block from the template EXACTLY — you may ADD flex rules but not remove existing ones
 
 2. **FIRST SLIDE - PORTFOLIO OVERVIEW (MANDATORY)**:
    - This MUST be the first slide in your output
    - Create a new slide (not from template) with class="slide portfolio-overview"
-   - Include a table/grid showing ALL projects:
-     * Column 1: Project Name
-     * Column 2: Status (with color: green=On Track, yellow=At Risk, red=Delayed)
-     * Column 3: Mood/Weather (text: Sunny, Cloudy, Rainy, Stormy)
-     * Column 4: Progress percentage
+   - Include a table or flex card grid showing ALL projects:
+     * Project Name, Status (color: green=On Track, yellow=At Risk, red=Delayed), Mood/Weather, Progress %
+   - Use flex layout for the content zone: display: flex; flex-direction: column; to stack header + grid
+   - For the project grid itself: display: flex; flex-wrap: wrap; gap: 8px; for cards
+     or a <table> for a compact row-based view
    - Style it to match the template's look and feel
-   - This slide gives executives a quick portfolio health view
+   - EVERYTHING must fit within 960x540 — reduce font-size if many projects
    - DO NOT SKIP THIS STEP
 
 3. **PROJECT SLIDES (MANDATORY)**:
@@ -769,12 +827,14 @@ GENERATION STEPS - FOLLOW IN EXACT ORDER
      * Which projects had missing data (if any)
    - DO NOT SKIP THIS STEP
 
-4. TEXT FITTING - Critical for each slide:
+4. TEXT FITTING AND LAYOUT - Critical for each slide:
+   - Use flex column for the content zone so sections flow without overlapping
+   - Use flex-shrink: 1 + min-height: 0 on sections so they compress if space is tight
    - Long titles: Reduce font-size inline (e.g., style="font-size: 14px;")
-   - Long descriptions: Truncate with "..."
-   - Text must NEVER overlap other elements
-   - Text must NEVER overflow its container
-   - Adjust font sizes to fit content properly
+   - Long descriptions: Reduce font-size further (down to 8px minimum) — NEVER truncate or clip text
+   - Text must NEVER overlap other elements — flex layout prevents this
+   - Text must NEVER be clipped or hidden — all injected text must be fully visible
+   - DO NOT use overflow: hidden on text containers — only the .slide container should clip
 
 5. ABSOLUTELY NO EMPTY SLIDES OR BLANK FIELDS - THIS IS CRITICAL:
    - EVERY slide for EVERY project must have meaningful, visible content
@@ -1043,9 +1103,31 @@ def _simple_multi_project_generation(
             position: relative;
             overflow: hidden;
             margin: 20px auto;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-            border-radius: 8px;
             background: #ffffff;
+        }}
+        /* Container query auto-scaling for text */
+        .section-box, .trend-box, .section-header {{
+            container-type: inline-size;
+        }}
+        .section-box .bullet-item,
+        .section-box .sub-label,
+        .section-box p,
+        .section-box li,
+        .section-box span:not(.page-number):not(.logo) {{
+            font-size: clamp(8px, 2.8cqw, 13px);
+            line-height: clamp(1.1, 0.1cqw + 1, 1.5);
+        }}
+        .section-header .section-title {{
+            font-size: clamp(9px, 3.2cqw, 16px);
+        }}
+        .trend-box .trend-item {{
+            font-size: clamp(8px, 2.5cqw, 12px);
+        }}
+        td, th {{
+            font-size: clamp(8px, 2.5cqw, 12px);
+        }}
+        .main-title {{
+            font-size: clamp(14px, 3.5cqw, 26px);
         }}
         .project-divider {{
             text-align: center;

@@ -52,84 +52,255 @@ CRITICAL - CHARACTER HANDLING:
 </character_encoding>
 
 <design_principles>
-- Extract and replicate the EXACT colors from the image (use hex codes like #FF5733)
-- Maintain precise proportions and relative positioning of every element
-- Preserve the visual hierarchy: large titles → medium subtitles → small body text
-- Match spacing between elements pixel-for-pixel
-- Replicate fonts as closely as possible (use Arial, Helvetica, or system fonts)
-- Match font weights (bold, semibold, regular, light)
+COLOR PALETTE — Extract and reuse consistently:
+- Identify the 4-5 key colors from the slide: primary (brand), secondary, accent, background tint, text color
+- Use hex codes (#FF5733) — extract from the image, do NOT invent new colors
+- Reuse the SAME palette across all elements: top-bar, section-header borders, bullet colors, status badges
+- If the slide uses a dark blue (#003366), ALL blue elements must use that exact shade — no variations
+
+TYPOGRAPHY SYSTEM:
+- Font family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif
+- Titles (.main-title): font-weight: 700; letter-spacing: -0.5px; (tight, professional)
+- Section headers (.section-title): text-transform: uppercase; letter-spacing: 1px; font-weight: 600;
+- Body text / bullets: font-weight: 400; line-height: 1.4;
+- Captions, footnotes, dates: color with reduced opacity (e.g., rgba(0,0,0,0.55)); font-weight: 400;
 - Preserve text alignment (left, center, right, justified)
+
+SPACING RHYTHM — All spacing follows a 4px grid:
+- Use ONLY these values for gap, padding, margin: 4px, 8px, 12px, 16px, 20px, 24px
+- gap: 8px between sections in the content zone
+- gap: 4px between bullet items inside a section-box
+- padding: 12px inside section-boxes and cards
+- padding: 16px-20px for larger containers
+- NEVER use arbitrary values like 7px, 13px, 18px — stick to the 4px rhythm
+
+VISUAL HIERARCHY:
+- Maintain clear levels: large titles → medium section headers → small body text
+- Match proportions and relative positioning of every element
 </design_principles>
 
+<visual_polish>
+PROFESSIONAL VISUAL ENRICHMENT — Apply these patterns to make slides look premium:
+
+1. STATUS BADGES (pill-shaped) — For any status, phase, or category indicator:
+   <span style="display:inline-block; padding: 2px 10px; border-radius: 12px;
+     background:#dcfce7; color:#166534; font-size:10px; font-weight:600;">On Track</span>
+   Color mapping:
+   - Green pill: background:#dcfce7; color:#166534; (on track, completed, good)
+   - Yellow pill: background:#fef9c3; color:#854d0e; (at risk, in progress, warning)
+   - Red pill: background:#fee2e2; color:#991b1b; (delayed, blocked, critical)
+   - Blue pill: background:#dbeafe; color:#1e40af; (planned, info, neutral)
+   - Gray pill: background:#f3f4f6; color:#374151; (N/A, not started, unknown)
+
+2. ELEVATION SHADOWS — ONLY when detected in the original image:
+   - If the original slide shows shadows on cards or containers, replicate them faithfully
+   - If the original slide has a FLAT design with no shadows, do NOT add any box-shadow
+   - Do NOT invent shadows that are not visible in the source image
+   - The .slide container itself may have a shadow for the page preview, but inner elements should only
+     have shadows if the original image shows them
+
+3. CHROME BARS (top-bar, footer-bar) — Replicate EXACTLY as seen in the image:
+   - If the image shows a FLAT solid color bar → use a flat background: #hex; (NO gradient)
+   - If the image shows a visible gradient → replicate it with linear-gradient
+   - Do NOT add gradients to flat-colored bars — this changes the design intent
+   - Most presentation footers are flat solid colors — keep them flat
+
+4. BORDERS AS VISUAL LANGUAGE — Consistent border system:
+   - Section header separator: border-top with the primary color (replicate thickness and color from image)
+   - Section box border: replicate exactly from image (color, thickness, radius)
+   - Table borders: replicate from image (typically hairline row separators)
+   - NEVER mix border styles — all borders in a slide follow the same language
+   - Do NOT add border-radius if the original image shows sharp/square corners
+   - Only use border-radius when the original image clearly shows rounded corners
+
+5. CSS MICRO-VISUALIZATIONS — For KPIs and metrics, use CSS-only visual elements:
+
+   Donut chart (for percentage completion):
+   <div style="width:48px; height:48px; border-radius:50%;
+     background: conic-gradient([primary] 0% 75%, #e5e7eb 75% 100%);
+     display:flex; align-items:center; justify-content:center;">
+     <span style="width:32px; height:32px; border-radius:50%; background:white;
+       display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">75%</span>
+   </div>
+
+   Horizontal comparison bar (actual vs planned):
+   <div style="display:flex; flex-direction:column; gap:2px; width:100%;">
+     <div style="height:6px; border-radius:3px; background:#e5e7eb; overflow:hidden;">
+       <div style="height:100%; width:75%; background:[primary]; border-radius:3px;"></div>
+     </div>
+     <div style="display:flex; justify-content:space-between; font-size:9px; color:rgba(0,0,0,0.5);">
+       <span>Actual: 75%</span><span>Target: 100%</span>
+     </div>
+   </div>
+
+   Traffic light (3-state indicator):
+   <div style="display:flex; gap:4px; align-items:center;">
+     <span style="width:10px; height:10px; border-radius:50%; background:#ef4444; opacity:0.3;"></span>
+     <span style="width:10px; height:10px; border-radius:50%; background:#eab308; opacity:0.3;"></span>
+     <span style="width:10px; height:10px; border-radius:50%; background:#22c55e; opacity:1;"></span>
+   </div>
+
+   Use these ONLY when the original slide shows similar visual elements (charts, gauges, indicators).
+   Do NOT add visualizations that are not present in the original image.
+
+6. SECTION-BOX STYLING — Replicate what you see in the image:
+   - If the original shows white/plain section boxes, keep them white/plain
+   - If the original shows tinted backgrounds, replicate the exact tint color
+   - If the original shows sharp/square corners, use border-radius: 0 (or omit it)
+   - If the original shows rounded corners, replicate the exact radius
+   - Do NOT add border-radius, shadows, or tinted backgrounds not visible in the source image
+</visual_polish>
+
 <layout_rules>
+SLIDE DIMENSIONS AND LAYOUT:
 - FIXED dimensions: 960px width × 540px height (16:9 aspect ratio)
-- Use position: absolute with top/left values in pixels for precise placement
-- ALL elements must fit WITHIN the 960×540 container - no overflow
-- Use overflow: hidden on each .slide container
-- Layer elements with z-index when they overlap
-- Use PIXEL widths (not percentages) on all positioned elements and containers
-- Every absolutely-positioned div MUST have width in pixels in its inline style
+- ALL elements must fit WITHIN the 960×540 container — NOTHING may overflow or be clipped
+- Use overflow: hidden on each .slide container as a safety net
+- Layer elements with z-index only when intentional overlap is needed
+
+LAYOUT STRATEGY — FIT EVERYTHING FIRST:
+The #1 priority is that ALL content is visible, readable, and nothing overlaps or gets cut off.
+Use this layout approach:
+
+1. CHROME (top-bar, footer-bar): Use position: absolute — they are fixed at top/bottom edges.
+2. HEADER ZONE (title + date-box): Use a flex row container with position: absolute.
+   - display: flex; align-items: center; justify-content: space-between;
+   - This PREVENTS title/date-box overlap automatically.
+3. CONTENT ZONE (sections between header and footer): Use a flex column container with position: absolute.
+   - position: absolute; top: [below header]; left: 20px; right: 20px; bottom: [above footer];
+   - display: flex; flex-direction: column; gap: 8px;
+   - Sections FLOW vertically and share space — NO hardcoded top values needed.
+   - If content is too tall, flex-shrink distributes the squeeze across sections.
+4. INSIDE SECTIONS (.section-box): Use flex column for internal content.
+   - display: flex; flex-direction: column; gap: 4px;
+   - Bullets, paragraphs, and sub-sections flow naturally without overlapping.
+5. TREND/KPI ROWS (.trend-box): Use flex row.
+   - display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+6. TWO-COLUMN LAYOUTS: Use flex row with flex: 1 per column.
+   - display: flex; gap: 16px; — each column: flex: 1; min-width: 0;
+
+WHEN TO USE position: absolute:
+- .top-bar (top: 0), .footer-bar (bottom: 0) — fixed chrome
+- The header zone container and content zone container — anchored to slide edges
+- Individual elements that must overlap others (badges, floating indicators)
+
+WHEN TO USE flexbox:
+- Content flow inside the slide (sections stacking vertically)
+- Items inside section-box (bullets, text blocks, lists)
+- Rows of KPIs, status indicators, trend items
+- Title + date-box alignment
+- Two-column layouts
+- Any place where elements need to share space without overlapping
+
+SIZING RULES:
+- Use px for widths on containers and font-sizes
+- Use flex: 1 / flex-shrink for proportional sizing within flex containers
+- Percentages allowed for progress bar fills (width: 75%)
+- gap property is preferred over margins for spacing between siblings
 </layout_rules>
 
-<pptx_compatibility>
-CRITICAL - HTML STRUCTURE STANDARDS FOR PPTX CONVERSION:
-The generated HTML will be automatically converted to PPTX by a script.
-If you do NOT follow these rules exactly, the PPTX will be broken or empty.
+<fit_everything>
+CRITICAL — THE #1 PRIORITY IS THAT EVERYTHING FITS AND LOOKS CLEAN:
+If you must choose between pixel-perfect replica and content visibility, ALWAYS choose visibility.
 
-REQUIRED CSS CLASS NAMES (use these exact names — the converter searches for them):
+1. ALL text must be fully readable — never cut off, never overlapping adjacent elements
+2. If the original slide image shows overlapping text, truncated content, or misaligned elements,
+   FIX these issues in your HTML. Produce a clean, readable version — not a copy of visual bugs.
+3. Use flex layouts to let content flow and share space naturally
+4. Reduce font-size when content is dense (11px body, 10px tables) BEFORE it overflows
+5. Use flex-shrink and min-height: 0 on flex children so they can compress when space is tight
+6. Never leave empty whitespace while content elsewhere is being clipped
+7. Test mentally: "if every text field had 2x the content, would flex handle it?" If not, add safeguards.
+</fit_everything>
+
+<structure_rules>
+HTML STRUCTURE STANDARDS:
+
+REQUIRED CSS CLASS NAMES (use these exact names):
 - .top-bar — colored bar at the top of each slide
-- .date-box — date/period box (positioned top-right)
-- .main-title — slide title text
+- .date-box — date/period box (in the header, right-aligned via flex)
+- .main-title — slide title text (in the header, grows to fill available space)
 - .footer-bar — footer bar at the bottom (NOT .bottom-bar, NOT .footer)
 - .page-number — page number INSIDE .footer-bar
 - .logo — logo text INSIDE .footer-bar
 - .section-header — section header with border-top separator line
 - .section-title — title text INSIDE .section-header
-- .section-box — bordered content box that holds the actual content (bullet-items, tables, text)
+- .section-box — bordered content box (use flex column inside for content flow)
 - .bullet-item — individual bullet point item (with colored square bullet via CSS ::before)
 - .sub-label — bold sub-label/category within a section-box
-- .trend-box / .trend-item — KPI/trend indicators row
+- .trend-box / .trend-item — KPI/trend indicators row (use flex row)
 - .link-text — styled hyperlinks
 
-MANDATORY STRUCTURE RULES (the PPTX converter WILL FAIL without these):
+STRUCTURE RULES:
 
-1. SECTION NESTING — Each content section MUST be a SINGLE wrapper div with position:absolute that contains BOTH the .section-header AND the .section-box as children:
+1. SECTION GROUPING — Each content section MUST keep .section-header and .section-box together
+   as children of the SAME parent container:
    CORRECT:
-     <div style="position:absolute; top:85px; left:20px; width:580px;">
+     <div class="section">
        <div class="section-header"><span class="section-title">BUDGET</span></div>
        <div class="section-box">...content here...</div>
      </div>
-   WRONG (will produce empty sections in PPTX):
-     <div style="position:absolute; top:85px; left:20px; width:580px;">
-       <div class="section-header"><span class="section-title">BUDGET</span></div>
-     </div>
-     <div class="section-box" style="top:120px; left:20px;">...content...</div>
+   WRONG:
+     <div class="section-header"><span class="section-title">BUDGET</span></div>
+     <!-- gap or other elements -->
+     <div class="section-box">...content...</div>
 
 2. FOOTER NESTING — .page-number and .logo MUST be children of .footer-bar:
    CORRECT: <div class="footer-bar"><span class="page-number">1</span><span class="logo">Air</span></div>
    WRONG:   <div class="footer-bar"></div><div class="page-number">1</div>
 
-3. PIXEL VALUES — ALL top, left, width, height, font-size MUST be in pixels (px), NEVER percentages.
+3. FOOTER / HEADER TEXT PRESERVATION — CRITICAL:
+   Brand names, logos, and company names in footer-bar and top-bar MUST be reproduced
+   CHARACTER BY CHARACTER. Read the text from the image VERY CAREFULLY.
+   - Zoom in mentally on the footer area — read EVERY letter left to right
+   - Common errors: reading only the last letter(s) of a word, dropping leading characters
+   - Example: if the footer shows "SYSTRA", you MUST output "SYSTRA" — not "A", not "TRA", not "STRA"
+   - Example: if the footer shows "ACCENTURE", you MUST output "ACCENTURE" — not "E", not "URE"
+   - The .logo span must contain the FULL, COMPLETE text — never a partial word
+   - The .page-number span must contain the FULL page number text
+   - After writing footer HTML, RE-READ the image footer and VERIFY every character matches
+   - Apply the same care to .main-title, .date-box, and any text in .top-bar
 
-4. TABLES — Use standard <table><tr><th>/<td> with pixel widths on cells. NO display:flex or display:grid.
+4. TABLES — Use semantic <table><tr><th>/<td> for tabular data. Set column widths in px.
 
-5. PROGRESS BARS — Nested divs: outer (background, border-radius) + inner (fill color, width in %).
+4. PROGRESS BARS — Nested divs: outer (background, border-radius) + inner (fill color, width in %).
 
-6. NO FLEXBOX/GRID — Do NOT use display:flex or display:grid anywhere in the HTML.
-
-CONTENT RICHNESS — Despite the structural rules above, be CREATIVE with the visual design:
+CONTENT RICHNESS — Be CREATIVE with the visual design:
 - Use colored progress bars, timeline indicators, trend arrows
 - Create rich section content with bullet points, sub-labels, bold text
 - Use colored status indicators (small spans with background-color and border-radius)
 - Add visual separators, borders, and section dividers for professional look
 - Every slide should feel dense with useful information, not empty
-</pptx_compatibility>
+</structure_rules>
 
 <text_handling>
-- Calculate font-size to ensure ALL text fits without truncation
-- Use appropriate line-height (typically 1.2-1.5) for readability
-- Apply word-wrap: break-word and overflow-wrap: break-word for long text
-- Use text-overflow: ellipsis only as a last resort
+CRITICAL — TEXT CONTAINERS MUST BE RESILIENT TO VARIABLE-LENGTH CONTENT:
+This HTML template will later be populated with real project data by another agent.
+Text that is "Project Alpha" in the original may become "Enterprise Cloud Migration Phase 2 - EMEA Region".
+Every text container MUST handle longer content gracefully.
+
+MANDATORY on ALL text-containing elements (.main-title, .section-title, .bullet-item, .sub-label, td, span, p):
+- word-wrap: break-word; overflow-wrap: break-word; (break long words)
+- DO NOT use overflow: hidden or text-overflow: ellipsis on text elements — text must NEVER be clipped or truncated
+- If text is too long, REDUCE font-size until it fits — this is always preferred over cutting text
+
+MANDATORY on ALL flex column containers (.section-box, content zone):
+- min-height: 0; (allow flex children to shrink below content size)
+- flex-shrink: 1; (participate in compression when space is tight)
+
+MANDATORY on ALL flex row items (trend-items, header title+date, two-column children):
+- min-width: 0; (allow flex children to shrink — prevents horizontal overflow)
+- word-wrap: break-word; overflow-wrap: break-word; (wrap long words instead of clipping)
+
+Font-size approach:
+- Use appropriate line-height (typically 1.3-1.5) for readability
+- Titles: set a font-size that works if the title were 2-3x longer
+- Body text: 11-13px is safer than 14px+ for variable content
+- Table cells: 10-12px to fit varying data widths
+
+DO NOT use fixed heights on text containers unless absolutely necessary.
+Let flex handle the sizing. DO NOT use overflow: hidden on text containers — text must always be fully visible.
+The ONLY element that should have overflow: hidden is the .slide container itself (960x540).
 </text_handling>
 
 <list_formatting>
@@ -152,37 +323,44 @@ CRITICAL - PROPER HTML LISTS:
 <boxes_and_containers>
 When replicating boxes, cards, or bordered containers:
 - Content must be completely INSIDE the border with proper padding
-- Use padding: 15-20px to separate content from borders
+- Use padding from the 4px rhythm (8px, 12px, 16px, 20px) to separate content from borders
 - For lists inside boxes: account for bullet width + text width
-- Calculate usable width: container_width - padding_left - padding_right
-- Match border-radius exactly (rounded corners)
-- Replicate box-shadow if present
-- Match background colors and gradients precisely
+- Replicate border-radius ONLY if the original image shows rounded corners — do NOT round square corners
+- Replicate box-shadow ONLY if the original image shows shadows — do NOT add shadows to flat designs
+- Match background colors precisely — do NOT add tints or gradients not in the original
+- The rule is simple: if you can see it in the image, replicate it. If you cannot, do not add it.
 </boxes_and_containers>
 
 <tables_and_grids>
-For tables and grid layouts:
-- Use standard HTML <table>, <tr>, <th>, <td> elements - NO CSS Grid or Flexbox for tables
+For tabular data:
+- Use semantic HTML <table>, <tr>, <th>, <td> elements
 - Set column widths in PIXELS directly on <td>/<th> elements via inline style (e.g., style="width: 240px;")
-- DO NOT use percentage widths on table cells - always convert to pixel values based on the 960px slide width
 - Replicate header styling (background color, font weight, borders)
 - Alternate row colors if present in the original
 - Match cell padding and text alignment
 - Set table width in pixels via inline style
+
+For non-tabular grid layouts (cards, KPI grids, project overview grids):
+- Use display: flex with flex-wrap: wrap and gap
+- Each card/item: flex: 0 0 auto with a fixed width, or flex: 1 for equal distribution
+- This is more flexible and prevents overflow compared to tables
 </tables_and_grids>
 
 <quality_checklist>
-Before finalizing, verify each slide against this checklist:
-1. ✓ Colors match exactly (compare hex values)
-2. ✓ Element positions are pixel-accurate
-3. ✓ All text is visible and not cut off
-4. ✓ Font sizes and weights match the original
-5. ✓ Lists and bullets are properly formatted with clean characters
-6. ✓ Boxes contain their content with proper padding
-7. ✓ No elements overlap incorrectly
-8. ✓ All text matches EXACTLY what is shown in the original slides
-9. ✓ No garbled Unicode characters (â–ª, â€", etc.)
-10. ✓ Visual hierarchy is preserved
+Before finalizing, verify each slide against this checklist (in priority order):
+1. ✓ ALL content fits — nothing overflows, nothing is cut off, nothing overlaps
+2. ✓ Flex containers are used for content flow — sections stack via flex column, not hardcoded top values
+3. ✓ All text is visible and fully readable at a comfortable font size
+4. ✓ Color palette is consistent — same primary/secondary hex used across all elements (no random color variations)
+5. ✓ Spacing follows 4px rhythm — all gaps/padding are multiples of 4px
+6. ✓ Status indicators use pill badges with appropriate color (green/yellow/red/blue/gray)
+7. ✓ Shadows ONLY present if the original image shows them — no invented shadows on flat designs
+8. ✓ Chrome bars (top-bar, footer-bar) match the image: flat color if flat, gradient only if visible
+9. ✓ Typography system applied — titles tight (letter-spacing: -0.5px), headers uppercase with spacing
+10. ✓ All text matches EXACTLY what is shown in the original slides
+11. ✓ Footer/header text verified CHARACTER BY CHARACTER — logo, brand name, page number are COMPLETE (not truncated)
+12. ✓ Lists and bullets are properly formatted with clean characters
+13. ✓ No garbled Unicode characters (â–ª, â€", etc.)
 </quality_checklist>
 
 <output_format>
@@ -214,9 +392,32 @@ body {
     position: relative;
     overflow: hidden;
     margin: 20px auto;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-    border-radius: 8px;
     background: #ffffff;
+}
+
+/* Container query auto-scaling for text */
+.section-box, .trend-box, .section-header {
+    container-type: inline-size;
+}
+.section-box .bullet-item,
+.section-box .sub-label,
+.section-box p,
+.section-box li,
+.section-box span:not(.page-number):not(.logo) {
+    font-size: clamp(8px, 2.8cqw, 13px);
+    line-height: clamp(1.1, 0.1cqw + 1, 1.5);
+}
+.section-header .section-title {
+    font-size: clamp(9px, 3.2cqw, 16px);
+}
+.trend-box .trend-item {
+    font-size: clamp(8px, 2.5cqw, 12px);
+}
+td, th {
+    font-size: clamp(8px, 2.5cqw, 12px);
+}
+.main-title {
+    font-size: clamp(14px, 3.5cqw, 26px);
 }
 ```
 
