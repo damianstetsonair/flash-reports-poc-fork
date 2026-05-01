@@ -87,6 +87,7 @@ app.add_middleware(
         "http://localhost:5175",
         "http://localhost:3000",
         "http://localhost:4173",
+        "https://flash-templates-assistant-git-feat-select-one-sl-5521f8-airsaas.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
